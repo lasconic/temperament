@@ -1,0 +1,194 @@
+S C A L E S  -  A plugin for MuseScore - version 0.2 - 11.02.2010
+
+'Scales' is a MuseScore plugin, to manage temperaments and apply them to scores,
+taking advantage of the MuseScore tuning feature (since version 0.9.5).
+
+'Scales' allows to differentiate up to 35 tones per octave, distinguishing among
+all the enharmonic variants (Gbb from F from E#, etc.).
+
+CREDIT: Scales is a modification of a plugin originally made by 'lasconic'.
+
+Copyright: Scales has been made by Maurizio M. Gavioli. Do with it whatever
+    you like. The author cannot be held responsible of ANYTHING in ANY way!
+    You have been warned.
+
+
+ - INSTALLATION -
+
+1) Extract all the files and move them in the "plugins" sub-folder of the
+	main folder where your copy of MuseScore is installed in.
+2) Start or re-start MuseScore.
+
+
+ - APPLYING A TEMPERAMENT -
+
+1) Select the required temperament in the combo box.
+2) Press "OK"
+
+The selected temperament will be applied to EACH note of the WHOLE score.
+
+In addition, it is also possible to shift all notes of a given value up or down
+(tuning to a different diapason). There are two ways to enter this datum:
+
+A) Entering a new A as a frequency:
+
+  1) Select the "frequency" radio button.
+  2) Enter the reference A frequency, i.e. the standard (un-tuned) frequency
+     of your sound card or MIDI instrument; this frequency is almost always
+     440Hz and it is already set in the "from" edit box; change it only if you
+     know your equipment has a different standard.
+  3) Enter the new A frequency in the "to" edit box (by default it is set to
+     the standard 440Hz, meaning "no change").
+
+B) Entering a cent difference:
+
+  1) Select the "cent" radio button.
+  2) Enter a cent difference in the "cent" edit box: a negative value will lower
+     the tuning and a positive value will raise it.
+
+When you will apply the temperament, all notes will returned up or down by this
+amount IN ADDITION to apply to each note the correction due to the temperament.
+
+
+- KNWON LIMITATIONS -
+
+1) Among notes with alterations, only the 7 diatonic notes and D#, Eb, F#, G#,
+	Bb are correctly reported to the plugin by MuseScore.
+	All other 23 altered notes are reported enharmonically as one of the above
+	12 notes and will be tuned as such.
+2) Small notes (acciaccaturas and appoggiaturas) are not reported at all to
+	the plugin and will be left untuned.
+
+These limitations are not due to the plugin but to the current version of
+MuseScore.
+
+
+ - BUILT-IN TEMPERAMENTS -
+
+The plugin has no data hidden INSIDE the code. Rather, it reads a textual file
+named "scales.tmpr" from the same folder where the plugin is.
+
+The "scales.tmpr" file is automatically updated after each operation (import,
+add, edit, delete).
+
+A default "scales.tmpr" is supplied with the plugin, containing 5 well-known
+temperaments.
+
+The format of the file is documented later.
+
+
+ - MANUALLY ADDING A TEMPERAMENT -
+
+1) Plress the "Add " button: a dialogue box will appear (see "Editing" below)
+2) Enter in this dialogue box a name for the new temperament; try to choose
+	a descriptive name which explains the nature of the temperament.
+3) Enter the value (in cent) of tuning to be applied to each note (or to each
+	note you care of: not EACH value box should be necessarily filled).
+4) Press "Ok": the new temperament will be added to the temperament combo box
+	and saved to the "scales.tmpr" data file.
+
+
+ - EDITING A TEMPERAMENT -
+
+1) Select the required temperament in the combo box
+2) Press either the "Edit as a scale" or the "Edit as fifths" button.
+
+Both editing modes (as a scale and as circle of fifths) give access to the
+full temperament range of dataand work in much the same way; they differ
+only for the order in which tones are listed:
+
+"Edit as scale" lists the 35 tones in scale order from C to B, with
+enharmonic alternatives in the same line.
+
+"Edit a (circle of) fifths" lists the same 35 tones as a sequence of fifths
+from Fbb to B##.
+
+Each form may display:
+* the full 35-value list (the default)
+* a 17-value list with the twelve chromatic notes plus the 5 most 'regular' enharmonic pairs
+* a 12-value list with the twelve chromatic notes
+* a 7-value list with only the diatonic notes
+
+Enter a value in cent for each of the tone you want to tune (accepted values
+go from -999 to +999 cents). Enter 0 for a tone which should keep the equal
+temperament value. When all the required values are set, press OK: the temper-
+ament and the "scales.tmpr" data file will be updated.
+
+It is also possible to edit the temperament name.
+
+
+ - DELETING A TEMPERAMENT - 
+
+1) Select one of the temperaments listed in the combo box.
+2) Press the "Delete" button.
+
+The temperament is deleted and the "scales.tmpr" file updated.
+
+CAUTION: there is no way to restore the deleted temperament: you have to import
+or manually add it again.
+
+
+ - IMPORT OF Scala SCALE FILES -
+
+1) After starting the plugin, press the "Import Scala file" button.
+2) Navigate to the folder where the file you want to import resides.
+3) Press OK: if possible, the scale will be imported in the plugin.
+
+Given the amazing variety Scala scales can have, only SOME Scala files can
+be imported; in particular, only files with 7, 12 or 17 values are accepted:
+
+* 7-value files: each value is mapped to the tuning for a diatonic note
+    ('white' keys); tunings for alterations ('black' keys) are set to 0.
+* 12-value files: each value is mapped to the tuning for one chromatic note
+    (both 'white' and 'black' keys); enharmonic variants (like D#-Eb, or
+    B#-C-Dbb) receive the same tuning.
+* 17-value files: each value is mapped to the tuning for one chromatic note
+    AND the 5 'simple' enharmonic pairs (C#-Db, D#-Eb, F#-Gb, G#-Ab, A#-Bb)
+    are distiguished.
+    This type of Scala file has a potential problem:
+    values in Scala files are sorted by magnitude; values for D, E, F,...
+    always occupy the same place and are easy to map; on the other hand,
+    values for C# and Db, for D# and Eb, etc., in theory, can occur either with
+    the # variant before or with the b variant before, depending on which is
+    lesser, without any way to know which is which.
+    The plugin assumes the lesser of the two is for the b variant and the
+    greater is for the # variant (for instance, it assumes the value for Eb
+    comes first and the value for D# second), because this is the most common
+    case. There may be cases in which this assumption is wrong and the values
+    will be swapped!
+
+Other types of Scala files cannot easily mapped to the MuseScore infrastructure
+and are rejected by the plugin.
+
+A HUGE collection of Scala temperament files (3000+) can be found at:
+
+http://www.huygens-fokker.org/scala/downloads.html
+
+where the Scala program itself can also be found. If you are seriously
+interested in musical scales and temperaments, you might find Scala quite
+interesting.
+
+
+ - THE scales.tmpr DATA FILE - 
+
+This file defines the temperaments known to the plugin. It is a textual file:
+
+* The first line contains a single number:
+    the number of temperaments defined in the file
+* Then for each temperament, there are:
+  * 1 line with the name (a string)
+  * 1 line with the type of the temperament (only type "1" is currently defined)
+  * 35 lines with a value for each note tuning following the order of the
+        circle of the fifths:
+    Fbb, Cbb, Gbb, Dbb, Abb, Ebb, Bbb, Fb, Cb, Gb, Db, Ab, Eb, Bb, F, C, G, D,
+    A, E, B, F#, C#, G#, D#, A#, E#, B#, F##, C##, G##, D##, A##, E##, B##
+
+The syntax is quite rigid:
+* no empty lines
+* no leading or trailing blanks
+* nothing in each line, but what it is expected to be there
+
+So, manual editing of this file IS possible, but NOT ENCOURAGED.
+
+Enjoy!
+	Maurizio M. Gavioli
