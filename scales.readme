@@ -1,7 +1,7 @@
 ==================================================
     S C A L E S  -  A plugin for MuseScore
 
-    version 0.3 - 15.02.2010
+    version 0.4 - 01.05.2012
 
     MuseScore version: 0.9.5 or greater (with limitations)
                        0.9.6 rev. 2705 or greater (full support)
@@ -207,6 +207,8 @@ interesting.
     While adding a new temperament, 5 notes were occasionally set to
         meaningless values: corrected.
     Improved layout of main dialog box
+
+0.4 process all 4 possible voices, not just 1-3.
 
 -------------------------
  - THE scales.tmpr DATA FILE - 
