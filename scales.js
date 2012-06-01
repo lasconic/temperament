@@ -5,7 +5,7 @@
 //  " S C A L E S " plugin
 //
 //	Manages and applies score temperaments.
-//	Version 0.2 - Date 11.02.2010
+//	Version 0.3 - Date 15.02.2010
 //
 //	By Maurizio M. Gavioli, 2010.
 //	Derived from a plugin by lasconic.
@@ -30,7 +30,7 @@
 // This array contains the difference between equal temperament and each temperament.
 //	Each item of this array is itself an array with 36 items:
 //	items from [0] to [34] are the tuning amounts (in cents) for each of the 35
-//	'full enharmonic' scale (Cbb, Cb, C, C#, C##, Dbb...);
+//	'full enharmonic' scale tones (Cbb, Cb, C, C#, C##, Dbb...);
 //	these items are ordered according to the circle of fifths:
 //	0: Fbb, 1: Cbb ... 13: Bb, 14: F, 15: C ... 32: A##, 33: E##, 34: B##
 //	the item ["Name"] is a string with the human-readale name of the temperament.
@@ -77,30 +77,32 @@ g_mapEqual[3] = [ 0, 100, 100, 200, 300, 300, 400, 500, 600, 600, 700, 800, 800,
 // Math.Log(r)*centFactor = 1200 * (ln(r) / ln(2)) = 1200 * log2(r) = log2^-1200(r)
 var	g_centFactor = 1200 / Math.LN2;
 
-// This array is used to convert a note_pitch/note_name_1st_char pair into
+// For MuseScore versions where the Note.tpc property is not implemented,
+//	this array is used to convert a note_pitch/note_name_1st_char pair into
 //	an index in the circle of fifths. The note pitch is taken module 12 and
 //	from the 1st char of the name 'a' is subtracted.
 //	Example: a pitch 50 may have a name of 'c##', 'd' or 'ebb';
 //		50%12 = 2 and the 1st name char becomes 2, 3 or 4;
 //		pitch * 8 + char will be: 18, 19, or 20
 //		and each will map to the 29th, 17th or 5th fifth
-var g_pitch2fifth =					// pitch	a   b   c   d   e   f   g	h
-[	-1, 27, 15,  3, -1, -1, -1, 27,	//  0		-   B#  C   Dbb -   -   -	B#
-	-1, 34, 22, 10, -1, -1, -1,	34,	//  1		-   B## C#  D   -   -   -	B##
-	-1, -1, 29, 17,  5, -1, -1,	-1,	//  2		-   -   C## D   Ebb -   -	-
-	-1, -1, -1, 24, 12,  0, -1,	-1,	//  3		-   -   -   D#  Eb  Fbb -	-
-	-1, -1, -1, 31, 19,  7, -1,	-1,	//  4		-   -   -   D## E   Fbb -	-
-	-1, -1, -1, -1, 26, 14,  2,	-1,	//  5		-   -   -   -   E#  F   Gbb	-
-	-1, -1, -1, -1, 33, 21,  9,	-1,	//  6		-   -   -   -   E## F#  Gb	-
-	 4, -1, -1, -1, -1, 28, 16,	-1,	//  7		Abb -   -   -   -   F## G	-
-	11, -1, -1, -1, -1, -1, 23,	-1,	//  8		Ab  -   -   -   -   -   G#	-
-	18,  6, -1, -1, -1, -1, 30,	 6,	//  9		A   Bbb -   -   -   -   G##	Bbb
-	25, 13,  1, -1, -1, -1, -1,	13,	// 10		A#  Bb  Cbb -   -   -   -	Bb
-	32, 20,  8, -1, -1, -1, -1,	20	// 11		A## B   Cb  -   -   -   -	B
+var g_pitch2fifth =					// pitch	a   b   c   d   e   f   g   h
+[	-1, 27, 15,  3, -1, -1, -1, 27,	//  0		-   B#  C   Dbb -   -   -   B#
+	-1, 34, 22, 10, -1, -1, -1, 34,	//  1		-   B## C#  D   -   -   -   B##
+	-1, -1, 29, 17,  5, -1, -1, -1,	//  2		-   -   C## D   Ebb -   -   -
+	-1, -1, -1, 24, 12,  0, -1, -1,	//  3		-   -   -   D#  Eb  Fbb -   -
+	-1, -1, -1, 31, 19,  7, -1, -1,	//  4		-   -   -   D## E   Fbb -   -
+	-1, -1, -1, -1, 26, 14,  2, -1,	//  5		-   -   -   -   E#  F   Gbb -
+	-1, -1, -1, -1, 33, 21,  9, -1,	//  6		-   -   -   -   E## F#  Gb  -
+	 4, -1, -1, -1, -1, 28, 16, -1,	//  7		Abb -   -   -   -   F## G   -
+	11, -1, -1, -1, -1, -1, 23, -1,	//  8		Ab  -   -   -   -   -   G#  -
+	18,  6, -1, -1, -1, -1, 30,  6,	//  9		A   Bbb -   -   -   -   G## Bbb
+	25, 13,  1, -1, -1, -1, -1, 13,	// 10		A#  Bb  Cbb -   -   -   -   Bb
+	32, 20,  8, -1, -1, -1, -1, 20	// 11		A## B   Cb  -   -   -   -   B
 ];
 
 // Global vars
-var		form, form2;
+var		g_form, g_form2;
+var		g_bUseTpc;
 
 //---------------------------------------------------------
 //	init()
@@ -127,25 +129,27 @@ function run()
 //		return;
 //	}
 
+	// determine version
+	g_bUseTpc = (mscoreVersion != undefined && mscoreVersion >= 906);
 	// create the UI
 	var loader = new QUiLoader(null);
 	var file   = new QFile(pluginPath + "/scales.ui");
 	file.open(QIODevice.OpenMode(QIODevice.ReadOnly, QIODevice.Text));
-	form = loader.load(file, null);
-	form.pushImport.clicked.connect(importTemper);
-	form.pushAdd.clicked.connect(addTemper);
-	form.pushEditFifths.clicked.connect(editTemperFifths);
-	form.pushEditScale.clicked.connect(editTemperScale);
-	form.pushDelete.clicked.connect(deleteTemper);
-	form.pushOk.clicked.connect(applyTemper);
-	form.pushCancel.clicked.connect(dlgDone);
+	g_form = loader.load(file, null);
+	g_form.pushImport.clicked.connect(importTemper);
+	g_form.pushAdd.clicked.connect(addTemper);
+	g_form.pushEditFifths.clicked.connect(editTemperFifths);
+	g_form.pushEditScale.clicked.connect(editTemperScale);
+	g_form.pushDelete.clicked.connect(deleteTemper);
+	g_form.pushOk.clicked.connect(applyTemper);
+	g_form.pushCancel.clicked.connect(dlgDone);
 	// init controls
 	loadTemper(pluginPath + "/scales.tmpr");	// load the built-in temperaments
-	form.radioAFreq.setChecked(true);
-	form.lineFrom.setText("440");
-	form.lineTo.setText("440");
-	form.lineCent.setText("0");
-	form.show();								// show the dlg
+	g_form.radioAFreq.setChecked(true);
+	g_form.lineFrom.setText("440");
+	g_form.lineTo.setText("440");
+	g_form.lineCent.setText("0");
+	g_form.show();								// show the dlg
 }
 
 //---------------------------------------------------------
@@ -159,28 +163,28 @@ function applyTemper()
 	var		chordnote, staff, voice;
 	var		cursor;
 	var		idx;
-	var		name, note, pitch;
+	var		name, note, pitch, tpc;
 	var		temper;
 
 	//get selected temperament and pick the right item in g_temper array
-	idx = form.comboTemper.currentIndex;
+	idx = g_form.comboTemper.currentIndex;
 	temper = g_temper[idx];
 
 	// get A tuning option
-	if(form.radioAFreq.checked)					// if A is given as freq:
-	{	aOffset = parseInt(form.lineFrom.text);	// get 'from' frequency
+	if(g_form.radioAFreq.checked)					// if A is given as freq:
+	{	aOffset = parseInt(g_form.lineFrom.text);	// get 'from' frequency
 		if(aOffset == 0)						// and make sure it is NOT 0
 			aOffset = 0;
 		else
-		{	aOffset = parseInt(form.lineTo.text) / aOffset;	// get frequency ratio
+		{	aOffset = parseInt(g_form.lineTo.text) / aOffset;	// get frequency ratio
 			aOffset = Math.log(aOffset) * g_centFactor;		// convert to cent
 		}
 	}
 	else										// if A is given as cent
-	{	aOffset = parseInt(form.lineCent.text);	// get cent difference
+	{	aOffset = parseInt(g_form.lineCent.text);	// get cent difference
 	}
 	aOffset = Math.round(aOffset - temper[18]);	// adjust with temper. value for A
-
+	
 	// for each note of each chord of each part of each staff
 	cursor = new Cursor(curScore);
 	curScore.startUndo();
@@ -192,16 +196,20 @@ function applyTemper()
 
 			while (!cursor.eos())
 			{	if (cursor.isChord())
-				{	for (chordnote = 0; chordnote < cursor.chord().notes; chordnote++)
+				{	for (chordnote = 0; chordnote < cursor.chord().notes(); chordnote++)
 					{	note	= cursor.chord().note(chordnote);
-						pitch	= note.pitch % 12;
-						name	= note.name.toLowerCase();
-						idx		= name.charCodeAt(0) - 97;	// 97 = 'a'
-						// name 1st char should be between 'a' and 'h'
-						if(idx < 0 || idx > 7)
-							continue;
-						idx = pitch * 8 + idx;				// note idx => table idx
-						idx = g_pitch2fifth[idx];			// table idx => fifth idx
+						if(g_bUseTpc)
+							idx		= note.tpc+1;
+						else
+						{	pitch	= note.pitch % 12;
+							name	= note.name;
+							idx		= name.charCodeAt(0) - 97;	// 97 = 'a'
+							// name 1st char should be between 'a' and 'h'
+							if(idx < 0 || idx > 7)
+								continue;
+							idx = pitch * 8 + idx;				// note idx => table idx
+							idx = g_pitch2fifth[idx];			// table idx => fifth idx
+						}
 						if(idx != -1)
 							note.tuning = temper[idx] + aOffset;
 					}
@@ -211,11 +219,11 @@ function applyTemper()
 		}
 	}
 	curScore.endUndo();
-	form.accept();
+	g_form.accept();
 }
 
 function dlgDone()
-{	form.reject();
+{	g_form.reject();
 }
 
 //---------------------------------------------------------
@@ -233,7 +241,7 @@ function importTemper()
 	var		numOfSteps;
 
 	// open a file selection dlg
-	var fName = QFileDialog.getOpenFileName(form, "Select Scala file to import",
+	var fName = QFileDialog.getOpenFileName(g_form, "Select Scala file to import",
 			".", "Scala file (*.scl)", 0);
 	if(fName == null)
 		return;
@@ -241,7 +249,7 @@ function importTemper()
 	// open the file as a text stream
 	var file = new QFile(fName);
 	if( !file.open(QIODevice.ReadOnly) )
-	{	QMessageBox.critical(form, "File Error", "Could not open file " + fName);
+	{	QMessageBox.critical(g_form, "File Error", "Could not open file " + fName);
 		return;
 	}
 	var textStream = new QTextStream(file);
@@ -271,7 +279,7 @@ function importTemper()
 		type = 4;
 		break;
 	default:							// only scales with 7, 12 or 17 steps are acceptable
-		QMessageBox.critical(form, "Invalid scale", "Only scales with 7, 12 or 17 steps are acceptable!");
+		QMessageBox.critical(g_form, "Invalid scale", "Only scales with 7, 12 or 17 steps are acceptable!");
 		return;
 	}
 
@@ -291,7 +299,7 @@ function importTemper()
 		// of decimal digits, the decimal dot and '/'
 		var exp = line.match(/[0-9]+\.[0-9]*|[0-9]+\/[0-9]+/);
 		if(exp == null)
-		{	QMessageBox.critical(form, "Invalid scale", "Could not understand value no. " + count);
+		{	QMessageBox.critical(g_form, "Invalid scale", "Could not understand value no. " + count);
 			return;
 		}
 		// evaluate the extracted expression
@@ -317,7 +325,7 @@ function importTemper()
 	file.close();
 
 	// if we got so far, add the new temperament to the combo box and to the g_temper array
-	form.comboTemper.addItem(name);
+	g_form.comboTemper.addItem(name);
 	g_temper[g_numOfTempers] = newTemper;
 	g_numOfTempers++;
 	saveTemper(pluginPath + "/scales.tmpr");
@@ -340,8 +348,8 @@ function addTemper()
 
 	// if editing successful
 	if(editTemper(newTemper, "/scales_e35a.ui"))
-	{	form.comboTemper.addItem(newTemper["Name"]);// add to combo box
-		form.comboTemper.setCurrentIndex(g_numOfTempers);
+	{	g_form.comboTemper.addItem(newTemper["Name"]);// add to combo box
+		g_form.comboTemper.setCurrentIndex(g_numOfTempers);
 		g_temper[g_numOfTempers] = newTemper;		// add to internal data
 		g_numOfTempers++;
 		saveTemper(pluginPath + "/scales.tmpr");	// save data
@@ -358,11 +366,11 @@ function editTemperFifths()
 	var		temper;
 
 	//get selected temperament and pick the right item in g_temper array
-	idx = form.comboTemper.currentIndex;
+	idx = g_form.comboTemper.currentIndex;
 	temper = g_temper[idx];
 	if(editTemper(temper, "/scales_e35a.ui"))
 	{	saveTemper(pluginPath + "/scales.tmpr");
-		form.comboTemper.setItemText(idx, temper["Name"]);
+		g_form.comboTemper.setItemText(idx, temper["Name"]);
 	}
 }
 
@@ -371,11 +379,11 @@ function editTemperScale()
 	var		temper;
 
 	//get selected temperament and pick the right item in g_temper array
-	idx = form.comboTemper.currentIndex;
+	idx = g_form.comboTemper.currentIndex;
 	temper = g_temper[idx];
 	if(editTemper(temper, "/scales_e35b.ui"))
 	{	saveTemper(pluginPath + "/scales.tmpr");
-		form.comboTemper.setItemText(idx, temper["Name"]);
+		g_form.comboTemper.setItemText(idx, temper["Name"]);
 	}
 }
 
@@ -387,100 +395,100 @@ function editTemper(temper, dlgFName)
 	var loader = new QUiLoader(null);
 	var file   = new QFile(pluginPath + dlgFName);
 	file.open(QIODevice.OpenMode(QIODevice.ReadOnly, QIODevice.Text));
-	form2 = loader.load(file, null);
-	form2.radio7.clicked.connect(dlgShow7);
-	form2.radio12.clicked.connect(dlgShow12);
-	form2.radio17.clicked.connect(dlgShow17);
-	form2.radio35.clicked.connect(dlgShow35);
-	form2.pushOk.clicked.connect(dlgAccept);
-	form2.pushCancel.clicked.connect(dlgReject);
-	form2.radio35.setChecked(true);		// show all keys by default
+	g_form2 = loader.load(file, null);
+	g_form2.radio7.clicked.connect(dlgShow7);
+	g_form2.radio12.clicked.connect(dlgShow12);
+	g_form2.radio17.clicked.connect(dlgShow17);
+	g_form2.radio35.clicked.connect(dlgShow35);
+	g_form2.pushOk.clicked.connect(dlgAccept);
+	g_form2.pushCancel.clicked.connect(dlgReject);
+	g_form2.radio35.setChecked(true);		// show all keys by default
 	// fill dlg with temperament data
-	form2.lineName.setText(temper["Name"]);
+	g_form2.lineName.setText(temper["Name"]);
 //	for(step=0; step < 35; step++)
-//	{	widget = form2.findChild("eK"+step);
+//	{	widget = g_form2.findChild("eK"+step);
 //		if(widget != null)
 //			widget.setText(""+temper[step]);
 //	}
-	form2.eK0.setText(temper[0]);
-	form2.eK1.setText(temper[1]);
-	form2.eK2.setText(temper[2]);
-	form2.eK3.setText(temper[3]);
-	form2.eK4.setText(temper[4]);
-	form2.eK5.setText(temper[5]);
-	form2.eK6.setText(temper[6]);
-	form2.eK7.setText(temper[7]);
-	form2.eK8.setText(temper[8]);
-	form2.eK9.setText(temper[9]);
-	form2.eK10.setText(temper[10]);
-	form2.eK11.setText(temper[11]);
-	form2.eK12.setText(temper[12]);
-	form2.eK13.setText(temper[13]);
-	form2.eK14.setText(temper[14]);
-	form2.eK15.setText(temper[15]);
-	form2.eK16.setText(temper[16]);
-	form2.eK17.setText(temper[17]);
-	form2.eK18.setText(temper[18]);
-	form2.eK19.setText(temper[19]);
-	form2.eK20.setText(temper[20]);
-	form2.eK21.setText(temper[21]);
-	form2.eK22.setText(temper[22]);
-	form2.eK23.setText(temper[23]);
-	form2.eK24.setText(temper[24]);
-	form2.eK25.setText(temper[25]);
-	form2.eK26.setText(temper[26]);
-	form2.eK27.setText(temper[27]);
-	form2.eK28.setText(temper[28]);
-	form2.eK29.setText(temper[29]);
-	form2.eK30.setText(temper[30]);
-	form2.eK31.setText(temper[31]);
-	form2.eK32.setText(temper[32]);
-	form2.eK33.setText(temper[33]);
-	form2.eK34.setText(temper[34]);
-	if(form2.exec() != QDialog.Accepted)					// show the dlg
+	g_form2.eK0.setText(temper[0]);
+	g_form2.eK1.setText(temper[1]);
+	g_form2.eK2.setText(temper[2]);
+	g_form2.eK3.setText(temper[3]);
+	g_form2.eK4.setText(temper[4]);
+	g_form2.eK5.setText(temper[5]);
+	g_form2.eK6.setText(temper[6]);
+	g_form2.eK7.setText(temper[7]);
+	g_form2.eK8.setText(temper[8]);
+	g_form2.eK9.setText(temper[9]);
+	g_form2.eK10.setText(temper[10]);
+	g_form2.eK11.setText(temper[11]);
+	g_form2.eK12.setText(temper[12]);
+	g_form2.eK13.setText(temper[13]);
+	g_form2.eK14.setText(temper[14]);
+	g_form2.eK15.setText(temper[15]);
+	g_form2.eK16.setText(temper[16]);
+	g_form2.eK17.setText(temper[17]);
+	g_form2.eK18.setText(temper[18]);
+	g_form2.eK19.setText(temper[19]);
+	g_form2.eK20.setText(temper[20]);
+	g_form2.eK21.setText(temper[21]);
+	g_form2.eK22.setText(temper[22]);
+	g_form2.eK23.setText(temper[23]);
+	g_form2.eK24.setText(temper[24]);
+	g_form2.eK25.setText(temper[25]);
+	g_form2.eK26.setText(temper[26]);
+	g_form2.eK27.setText(temper[27]);
+	g_form2.eK28.setText(temper[28]);
+	g_form2.eK29.setText(temper[29]);
+	g_form2.eK30.setText(temper[30]);
+	g_form2.eK31.setText(temper[31]);
+	g_form2.eK32.setText(temper[32]);
+	g_form2.eK33.setText(temper[33]);
+	g_form2.eK34.setText(temper[34]);
+	if(g_form2.exec() != QDialog.Accepted)					// show the dlg
 		return false;
 	// copy back edited data
-	temper["Name"] = form2.lineName.text;
+	temper["Name"] = g_form2.lineName.text;
 //	for(step=0; step < 35; step++)
-//	{	widget = form2.findChild("eK"+step);
+//	{	widget = g_form2.findChild("eK"+step);
 //		if(widget != null)
 //			temper[step] = parseInt(widget.text);
 //	}
-	temper[0] = parseInt( form2.eK0.text );
-	temper[1] = parseInt( form2.eK1.text );
-	temper[2] = parseInt( form2.eK2.text );
-	temper[3] = parseInt( form2.eK3.text );
-	temper[4] = parseInt( form2.eK4.text );
-	temper[5] = parseInt( form2.eK5.text );
-	temper[6] = parseInt( form2.eK6.text );
-	temper[7] = parseInt( form2.eK7.text );
-	temper[8] = parseInt( form2.eK8.text );
-	temper[9] = parseInt( form2.eK9.text );
-	temper[10]= parseInt( form2.eK10.text);
-	temper[11]= parseInt( form2.eK11.text);
-	temper[12]= parseInt( form2.eK12.text);
-	temper[13]= parseInt( form2.eK13.text);
-	temper[14]= parseInt( form2.eK14.text);
-	temper[15]= parseInt( form2.eK15.text);
-	temper[16]= parseInt( form2.eK16.text);
-	temper[17]= parseInt( form2.eK17.text);
-	temper[18]= parseInt( form2.eK18.text);
-	temper[19]= parseInt( form2.eK19.text);
-	temper[20]= parseInt( form2.eK20.text);
-	temper[21]= parseInt( form2.eK21.text);
-	temper[22]= parseInt( form2.eK22.text);
-	temper[23]= parseInt( form2.eK23.text);
-	temper[24]= parseInt( form2.eK24.text);
-	temper[25]= parseInt( form2.eK25.text);
-	temper[26]= parseInt( form2.eK26.text);
-	temper[27]= parseInt( form2.eK27.text);
-	temper[28]= parseInt( form2.eK28.text);
-	temper[29]= parseInt( form2.eK29.text);
-	temper[30]= parseInt( form2.eK30.text);
-	temper[31]= parseInt( form2.eK31.text);
-	temper[32]= parseInt( form2.eK32.text);
-	temper[33]= parseInt( form2.eK33.text);
-	temper[34]= parseInt( form2.eK34.text);
+	temper[0] = parseInt( g_form2.eK0.text );
+	temper[1] = parseInt( g_form2.eK1.text );
+	temper[2] = parseInt( g_form2.eK2.text );
+	temper[3] = parseInt( g_form2.eK3.text );
+	temper[4] = parseInt( g_form2.eK4.text );
+	temper[5] = parseInt( g_form2.eK5.text );
+	temper[6] = parseInt( g_form2.eK6.text );
+	temper[7] = parseInt( g_form2.eK7.text );
+	temper[8] = parseInt( g_form2.eK8.text );
+	temper[9] = parseInt( g_form2.eK9.text );
+	temper[10]= parseInt( g_form2.eK10.text);
+	temper[11]= parseInt( g_form2.eK11.text);
+	temper[12]= parseInt( g_form2.eK12.text);
+	temper[13]= parseInt( g_form2.eK13.text);
+	temper[14]= parseInt( g_form2.eK14.text);
+	temper[15]= parseInt( g_form2.eK15.text);
+	temper[16]= parseInt( g_form2.eK16.text);
+	temper[17]= parseInt( g_form2.eK17.text);
+	temper[18]= parseInt( g_form2.eK18.text);
+	temper[19]= parseInt( g_form2.eK19.text);
+	temper[20]= parseInt( g_form2.eK20.text);
+	temper[21]= parseInt( g_form2.eK21.text);
+	temper[22]= parseInt( g_form2.eK22.text);
+	temper[23]= parseInt( g_form2.eK23.text);
+	temper[24]= parseInt( g_form2.eK24.text);
+	temper[25]= parseInt( g_form2.eK25.text);
+	temper[26]= parseInt( g_form2.eK26.text);
+	temper[27]= parseInt( g_form2.eK27.text);
+	temper[28]= parseInt( g_form2.eK28.text);
+	temper[29]= parseInt( g_form2.eK29.text);
+	temper[30]= parseInt( g_form2.eK30.text);
+	temper[31]= parseInt( g_form2.eK31.text);
+	temper[32]= parseInt( g_form2.eK32.text);
+	temper[33]= parseInt( g_form2.eK33.text);
+	temper[34]= parseInt( g_form2.eK34.text);
 	return true;
 }
 
@@ -506,41 +514,41 @@ function dlgShow35()
 }
 
 function dlgShowKeys(nKeys)
-{	form2.eK0.setVisible (nKeys >= 35);
-	form2.eK1.setVisible (nKeys >= 35);
-	form2.eK2.setVisible (nKeys >= 35);
-	form2.eK3.setVisible (nKeys >= 35);
-	form2.eK4.setVisible (nKeys >= 35);
-	form2.eK5.setVisible (nKeys >= 35);
-	form2.eK6.setVisible (nKeys >= 35);
-	form2.eK7.setVisible (nKeys >= 35);
-	form2.eK8.setVisible (nKeys >= 35);
-	form2.eK9.setVisible (nKeys >= 17);
-	form2.eK10.setVisible(nKeys >= 17);
-	form2.eK11.setVisible(nKeys >= 12);
-	form2.eK12.setVisible(nKeys >= 12);
-	form2.eK13.setVisible(nKeys >= 12);
-//	form2.eK14.setVisible(nKeys >=  7);
-//	form2.eK15.setVisible(nKeys >=  7);
-//	form2.eK16.setVisible(nKeys >=  7);
-//	form2.eK17.setVisible(nKeys >=  7);
-//	form2.eK18.setVisible(nKeys >=  7);
-//	form2.eK19.setVisible(nKeys >=  7);
-//	form2.eK20.setVisible(nKeys >=  7);
-	form2.eK21.setVisible(nKeys >= 12);
-	form2.eK22.setVisible(nKeys >= 12);
-	form2.eK23.setVisible(nKeys >= 17);
-	form2.eK24.setVisible(nKeys >= 17);
-	form2.eK25.setVisible(nKeys >= 17);
-	form2.eK26.setVisible(nKeys >= 35);
-	form2.eK27.setVisible(nKeys >= 35);
-	form2.eK28.setVisible(nKeys >= 35);
-	form2.eK29.setVisible(nKeys >= 35);
-	form2.eK30.setVisible(nKeys >= 35);
-	form2.eK31.setVisible(nKeys >= 35);
-	form2.eK32.setVisible(nKeys >= 35);
-	form2.eK33.setVisible(nKeys >= 35);
-	form2.eK34.setVisible(nKeys >= 35);
+{	g_form2.eK0.setVisible (nKeys >= 35);
+	g_form2.eK1.setVisible (nKeys >= 35);
+	g_form2.eK2.setVisible (nKeys >= 35);
+	g_form2.eK3.setVisible (nKeys >= 35);
+	g_form2.eK4.setVisible (nKeys >= 35);
+	g_form2.eK5.setVisible (nKeys >= 35);
+	g_form2.eK6.setVisible (nKeys >= 35);
+	g_form2.eK7.setVisible (nKeys >= 35);
+	g_form2.eK8.setVisible (nKeys >= 35);
+	g_form2.eK9.setVisible (nKeys >= 17);
+	g_form2.eK10.setVisible(nKeys >= 17);
+	g_form2.eK11.setVisible(nKeys >= 12);
+	g_form2.eK12.setVisible(nKeys >= 12);
+	g_form2.eK13.setVisible(nKeys >= 12);
+//	g_form2.eK14.setVisible(nKeys >=  7);
+//	g_form2.eK15.setVisible(nKeys >=  7);
+//	g_form2.eK16.setVisible(nKeys >=  7);
+//	g_form2.eK17.setVisible(nKeys >=  7);
+//	g_form2.eK18.setVisible(nKeys >=  7);
+//	g_form2.eK19.setVisible(nKeys >=  7);
+//	g_form2.eK20.setVisible(nKeys >=  7);
+	g_form2.eK21.setVisible(nKeys >= 12);
+	g_form2.eK22.setVisible(nKeys >= 12);
+	g_form2.eK23.setVisible(nKeys >= 17);
+	g_form2.eK24.setVisible(nKeys >= 17);
+	g_form2.eK25.setVisible(nKeys >= 17);
+	g_form2.eK26.setVisible(nKeys >= 35);
+	g_form2.eK27.setVisible(nKeys >= 35);
+	g_form2.eK28.setVisible(nKeys >= 35);
+	g_form2.eK29.setVisible(nKeys >= 35);
+	g_form2.eK30.setVisible(nKeys >= 35);
+	g_form2.eK31.setVisible(nKeys >= 35);
+	g_form2.eK32.setVisible(nKeys >= 35);
+	g_form2.eK33.setVisible(nKeys >= 35);
+	g_form2.eK34.setVisible(nKeys >= 35);
 }
 
 //---------------------------------------------------------
@@ -549,11 +557,11 @@ function dlgShowKeys(nKeys)
 //---------------------------------------------------------
 
 function dlgAccept()
-{	form2.accept();
+{	g_form2.accept();
 }
 
 function dlgReject()
-{	form2.reject();
+{	g_form2.reject();
 }
 
 //---------------------------------------------------------
@@ -567,18 +575,18 @@ function deleteTemper()
 {	var		idx;
 	var		temper;
 
-	//get selected temperament and pick it form the array
-	idx = form.comboTemper.currentIndex;
+	//get selected temperament and pick it from the array
+	idx = g_form.comboTemper.currentIndex;
 
 	// ask the user for a confirmation
 	// using custom buttons to show "Yes" / "No" does not seem to work!
-	if(QMessageBox.question(form, "Delete temperament",
+	if(QMessageBox.question(g_form, "Delete temperament",
 			"\"" + g_temper[idx]["Name"] +
 			"\" will permanently deleted\nProceed? (press ESC to abort)") != QMessageBox.Ok)
 		return;
 
 	// remove item from combo box
-	form.comboTemper.removeItem(idx);
+	g_form.comboTemper.removeItem(idx);
 	// remove item from internal data, shifting all 'next' temperaments 'down' one slot
 	for(temper = idx; temper < g_numOfTempers-1; temper++)
 		g_temper[temper] = g_temper[temper+1];
@@ -604,7 +612,7 @@ function loadTemper(fName)
 	// open data file as a text stream
 	var file = new QFile(fName);
 	if( !file.open(QIODevice.ReadOnly) )
-	{	QMessageBox.critical(form, "File Error", "Could not open data file " + fName);
+	{	QMessageBox.critical(g_form, "File Error", "Could not open data file " + fName);
 		return;
 	}
 	var textStream = new QTextStream(file);
@@ -612,7 +620,7 @@ function loadTemper(fName)
 	line = textStream.readLine();	// a line with the number of temperaments in the file
 	numOfTempers = parseInt(line);
 	if(numOfTempers == null || numOfTempers < 1)
-	{	QMessageBox.warning(form, "File Error", "Nothing to read from file " + fName);
+	{	QMessageBox.warning(g_form, "File Error", "Nothing to read from file " + fName);
 		return;
 	}
 
@@ -630,7 +638,7 @@ function loadTemper(fName)
 			numOfSteps = 35;
 			break;
 		default:
-			QMessageBox.critical(form, "File Error", "Unknown type for temperament no. " + (temper+1));
+			QMessageBox.critical(g_form, "File Error", "Unknown type for temperament no. " + (temper+1));
 			return;
 		}
 		newTemper = new Array();
@@ -639,7 +647,7 @@ function loadTemper(fName)
 		{	line = textStream.readLine();
 			val = parseInt(line);
 			if(val == NaN)
-			{	QMessageBox.warning(form, "File Error",
+			{	QMessageBox.warning(g_form, "File Error",
 						"Invalid value for line " + (step+1) +
 						" of temperament " + (temper+1) );
 				return;
@@ -648,7 +656,7 @@ function loadTemper(fName)
 		}
 		newTemper["Name"] = name;
 		// if we got so far, add the new temperament to the combo box and to the g_temper array
-		form.comboTemper.addItem(name);
+		g_form.comboTemper.addItem(name);
 		g_temper[g_numOfTempers] = newTemper;
 		g_numOfTempers++;
 	}
@@ -668,7 +676,7 @@ function saveTemper(fName)
 	if(file.exists())
 		file.remove();
 	if( !file.open(QIODevice.ReadWrite) )
-	{	QMessageBox.critical(form, "File Error", "Could not open data file");
+	{	QMessageBox.critical(g_form, "File Error", "Could not open data file");
 		return;
 	}
 	var textStream = new QTextStream(file);
@@ -693,7 +701,7 @@ function saveTemper(fName)
 //---------------------------------------------------------
 
 var mscorePlugin =
-{	menu:	'Plugins.Temperament Tuning',
+{	menu:	'Plugins.Scales',
 	init:	init,
 	run:	run
 };
