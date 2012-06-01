@@ -5,7 +5,7 @@
 //  " S C A L E S " plugin
 //
 //	Manages and applies score temperaments.
-//	Version 0.3 - Date 15.02.2010
+//	Version 0.4 - Date 01.06.2012
 //
 //	By Maurizio M. Gavioli, 2010.
 //	Derived from a plugin by lasconic.
@@ -190,7 +190,7 @@ function applyTemper()
 	curScore.startUndo();
 	for (staff = 0; staff < curScore.staves; ++staff)
 	{	cursor.staff = staff;
-		for (voice = 0; voice < 3; voice++)
+		for (voice = 0; voice < 4; voice++)
 		{	cursor.voice = voice;
 			cursor.rewind();					// set cursor to first chord/rest
 
