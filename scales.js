@@ -5,7 +5,7 @@
 //  " S C A L E S " plugin
 //
 //	Manages and applies score temperaments.
-//	Version 0.4 - Date 01.06.2012
+//	Version 0.5 - Date 03.06.2012
 //
 //	By Maurizio M. Gavioli, 2010.
 //	Derived from a plugin by lasconic.
