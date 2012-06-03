@@ -123,11 +123,11 @@ function init()
 
 function run()
 {
-// this does not seem to work!
-//	if(curScore == undefined || curScore == null)
-//	{	QMessageBox.critical(null, "Scales Plugin Error", "No score is open");
-//		return;
-//	}
+	// no score open (MuseScore 2.0+, can't happen earlier)
+	if (typeof curScore === 'undefined')
+	{	QMessageBox.critical(null, "Scales Plugin Error", "No score is open");
+		return;
+	}
 
 	// determine version
 	g_bUseTpc = (mscoreVersion != undefined && mscoreVersion >= 906);
