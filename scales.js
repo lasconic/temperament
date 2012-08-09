@@ -197,7 +197,7 @@ function applyTemper()
 
 			while (!cursor.eos())
 			{	if (cursor.isChord())
-				{	for (chordnote = 0; chordnote < cursor.chord().notes(); chordnote++)
+				{	for (chordnote = 0; chordnote < cursor.chord().notes; chordnote++)
 					{	note	= cursor.chord().note(chordnote);
 						if(g_bUseTpc)
 							idx		= note.tpc+1;
