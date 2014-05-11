@@ -5,7 +5,7 @@
 //  " S C A L E S " plugin
 //
 //	Manages and applies score temperaments.
-//	Version 0.5 - Date 03.06.2012
+//	Version 0.7 - Date 11May2014
 //
 //	By Maurizio M. Gavioli, 2010.
 //	Derived from a plugin by lasconic.
@@ -212,7 +212,7 @@ function applyTemper()
 							idx = g_pitch2fifth[idx];			// table idx => fifth idx
 						}
 						if(idx != -1)
-							note.tuning = temper[idx] + aOffset;
+							note.tuning += temper[idx] + aOffset;
 					}
 				}
 				cursor.next();
